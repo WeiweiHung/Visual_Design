@@ -6,6 +6,24 @@
   <title>My p5.js Sketch</title>
   <!-- 從 CDN 引入 p5.js 函式庫 -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+  <style>
+    /* 設定網頁背景顏色與內容容器的置中樣式 */
+    body, html {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center; /* 水平置中 */
+      align-items: center;     /* 垂直置中 */
+      height: 100vh;           /* 讓 body 填滿整個視窗 */
+      background-color: #000;  /* 黑色背景 */
+    }
+    canvas {
+      display: block;
+      /* 防止畫布被過度縮放變形，保持比例並且置中 */
+      max-width: 100%;  /* 讓畫布不會超出視窗寬度 */
+      max-height: 100%; /* 讓畫布不會超出視窗高度 */
+    }
+  </style>
 </head>
 <body>
   <!-- 連結外部的 sketch.js -->
