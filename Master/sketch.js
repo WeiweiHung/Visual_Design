@@ -1,8 +1,8 @@
-let maxDepth = 8; // 最大遞迴深度
+let maxDepth = 9; // 最大遞迴深度
 let branches = []; // 儲存所有蛇的分支
 let waveAmplitude = 20; // 波動幅度，影響每段波的高度
 let waveFrequency = 0.01; // 波動頻率，影響每段波的起伏密度
-let lineWeight = 3; // 線條粗細
+let lineWeight = 2; // 線條粗細
 let scale = 0.9; // 縮小比例
 let canvas; // 定義全域 canvas 變數
 let changeHueValue = 17; // Hue 變化值
@@ -18,7 +18,7 @@ function setup() {
 
     colorMode(HSL, 360, 100, 100); // 設置顏色模式為 HSL
     background(0); // 黑色背景
-    frameRate(30); // 設定更新速率
+    frameRate(60); // 設定更新速率
 
     branches = []; // 清空 branches，防止 windowResized 重新初始化時殘留舊的分支
     
