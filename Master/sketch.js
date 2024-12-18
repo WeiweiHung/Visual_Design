@@ -1,17 +1,43 @@
 let maxDepth = 8; // 最大遞迴深度
 let branches = []; // 儲存所有蛇的分支
-let waveAmplitude = 20;  // 波動幅度，影響每段波的高度
-let waveFrequency = 0.05;  // 波動頻率，影響每段波的起伏密度
-let lineWeight = 10;     // 線條粗細
-let scale = 0.9;        // 縮小比例
+let waveAmplitude = 20; // 波動幅度，影響每段波的高度
+let waveFrequency = 0.01; // 波動頻率，影響每段波的起伏密度
+let lineWeight = 3; // 線條粗細
+let scale = 0.9; // 縮小比例
+let canvas; // 定義全域 canvas 變數
+let changeHueValue = 17; // Hue 變化值
+let exportResolution = 2; // 解析度倍數，2 代表輸出解析度為螢幕大小的兩倍
+let isExporting = false;
 
 function setup() {
-    createCanvas(windowWidth, windowHeight);
-    positionCanvas();
-    background(0); // 初次繪製背景
+    const canvasWidth = min(windowWidth, windowHeight / 1.414); // 依比例限制最大寬度
+    const canvasHeight = canvasWidth * 1.414; // 高度以 A5 比例計算
 
+    canvas = createCanvas(canvasWidth, canvasHeight); // 創建比例正確的畫布
+    positionCanvas(); // 自訂函式，確保畫布在視窗中間
+
+    colorMode(HSL, 360, 100, 100); // 設置顏色模式為 HSL
+    background(0); // 黑色背景
     frameRate(30); // 設定更新速率
-    branches.push(new Branch(width / 2, height, 100, 0, -PI / 2, color(255, 215, 0))); // 從畫布中間往上長的第一條分支
+
+    branches = []; // 清空 branches，防止 windowResized 重新初始化時殘留舊的分支
+    
+    let initialHue = random(360); // 隨機初始色相
+    let textColor = color(initialHue, 80, 100); // 設置高飽和度、高亮度的顏色
+    
+    let initialAmplitude = 30; // 初始振幅
+    branches.push(new Branch(width / 2, height, height / 5, 0, -PI / 2, initialHue, initialAmplitude, lineWeight));
+
+    // 在畫布上顯示文字
+    drawText(textColor);
+}
+
+function drawText(textColor) {
+    textAlign(LEFT, CENTER); // 文字置中
+    textSize(width / 10); // 字體大小依據畫布寬度調整
+    fill(textColor); // 設置文字顏色
+    noStroke();
+    //text("蛇意盎然", width / 2, height / 4); // 在畫布的上方 1/4 處顯示文字
 }
 
 function draw() {
@@ -24,41 +50,53 @@ function draw() {
             let endX = b.endX();
             let endY = b.endY();
 
-            let rightColor = lerpColor(b.color, color(255, 0, 0), 0.2); // 右邊逐漸增加紅色
-            let leftColor = lerpColor(b.color, color(0, -255, 255), 0.2);  // 左邊逐漸增加藍色
+            let newAmplitude = b.amplitude * 1; // 每次分裂時縮小振幅
+            let newLineWeight = b.lineWeight * scale; // 每次遞迴縮小線條粗細
 
-            branches.push(new Branch(endX, endY, b.len * scale, b.depth + 1, b.angle + PI / 6, rightColor)); // 右分支
-            branches.push(new Branch(endX, endY, b.len * scale, b.depth + 1, b.angle - PI / 6, leftColor));  // 左分支
+            // 左右分支色相變化
+            let leftHue = (b.hue - changeHueValue + 360) % 360;
+            let rightHue = (b.hue + changeHueValue) % 360;
+
+            branches.push(new Branch(endX, endY, b.len * scale, b.depth + 1, b.angle + PI / 6, rightHue, newAmplitude, newLineWeight));
+            branches.push(new Branch(endX, endY, b.len * scale, b.depth + 1, b.angle - PI / 6, leftHue, newAmplitude, newLineWeight));
 
             branches.splice(i, 1); // 移除已完成分裂的分支
         }
     }
+
+    // 如果需要導出，停止動態繪製並輸出高解析度畫布
+    if (isExporting) {
+        exportHighResolution();
+        noLoop(); // 停止繪製
+    }
 }
 
 function positionCanvas() {
-    let canvas = document.getElementById('defaultCanvas0');
-    canvas.style.position = 'absolute';
-    canvas.style.left = `${(windowWidth - width) / 2}px`;
-    canvas.style.top = `${windowHeight - height}px`;
+    canvas.style('display', 'block');
+    canvas.position((windowWidth - width) / 2, (windowHeight - height) / 2);
 }
 
 function windowResized() {
-    resizeCanvas(windowWidth, windowHeight);
-    positionCanvas();
-    background(0);
+    setup();
 }
 
 class Branch {
-    constructor(x, y, len, depth, angle, colorValue) {
+    constructor(x, y, len, depth, angle, hueValue, amplitude, lineWeight) {
         this.startX = x;
         this.startY = y;
         this.len = len;
         this.depth = depth;
-        this.growth = 0; // 當前的生長進度
+        this.growth = 0;
         this.angle = angle;
-        this.color = colorValue;
+        this.hue = hueValue;
+        this.amplitude = amplitude;
+        this.lineWeight = lineWeight;
         this.fullyGrown = false;
-        this.perlinOffset = random(1000); // 每個分支不同的Perlin Noise偏移
+        this.perlinOffset = random(1000);
+
+        // 用於記錄最終畫出的點
+        this.actualEndX = x;
+        this.actualEndY = y;
     }
 
     update() {
@@ -73,32 +111,75 @@ class Branch {
         return this.fullyGrown;
     }
 
+    display() {
+        strokeWeight(this.lineWeight);
+        noFill();
+
+        let x = this.startX;
+        let y = this.startY;
+
+        beginShape();
+        vertex(x, y); // 第一個點
+
+        for (let i = 0; i <= this.growth; i++) {
+            // 計算當前進度百分比
+            let progress = i / this.growth;
+
+            // 計算當前點的色相，確保在範圍內
+            let currentHue = (this.hue + changeHueValue * progress) % 360;
+            if (currentHue < 0) currentHue += 360;
+
+            // 設置當前筆刷顏色
+            stroke(currentHue, 80, 60);
+
+            // 計算平滑的噪聲值
+            let noiseValue = noise(this.perlinOffset + i * waveFrequency * 2) * this.amplitude * (1 + Math.min(i * 0.01, 1));
+
+            // 計算當前點的座標
+            let interpolatedX = this.startX + cos(this.angle) * i + sin(this.angle) * noiseValue;
+            let interpolatedY = this.startY + sin(this.angle) * i - cos(this.angle) * noiseValue;
+
+            // 插值平滑過渡
+            let t = 0.5;
+            x = lerp(x, interpolatedX, t);
+            y = lerp(y, interpolatedY, t);
+
+            vertex(x, y);
+        }
+
+        endShape();
+
+        // 記錄最後一個點的位置與色相
+        this.actualEndX = x;
+        this.actualEndY = y;
+        this.actualEndHue = (this.hue + changeHueValue) % 360; // 記錄結尾色相
+        if (this.actualEndHue < 0) this.actualEndHue += 360;
+    }
+
+
+
+
+
+    // 回傳最新的終點座標
     endX() {
-        return this.startX + cos(this.angle) * this.len;
+        return this.actualEndX;
     }
 
     endY() {
-        return this.startY + sin(this.angle) * this.len;
-    }
-
-    display() {
-        stroke(this.color);
-        strokeWeight(lineWeight);
-        noFill();
-
-        beginShape();
-        let fixedWaveLength = this.len / 10; // 固定波長
-        for (let i = 0; i <= this.growth; i++) {
-            let noiseValue = noise(this.perlinOffset + i * waveFrequency) * waveAmplitude; // Perlin Noise
-            let x = this.startX + cos(this.angle) * i + sin(this.angle) * noiseValue;
-            let y = this.startY + sin(this.angle) * i - cos(this.angle) * noiseValue;
-            vertex(x, y);
-        }
-        endShape();
+        return this.actualEndY;
     }
 }
 
+// 鍵盤按鍵觸發輸出
+function keyPressed() {
+    if (key === 's' || key === 'S') {
+        isExporting = true; // 按下 'S' 開始高解析度輸出
+    }
+}
 
+function exportHighResolution() {
+    saveCanvas();
+}
 
 
 
